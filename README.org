@@ -1,0 +1,24 @@
+#+AUTHOR: Chris Liourtas
+#+TITLE: A proof of concept programming language
+
+* XLang About
+
+* Design
+** Codebase
+#+begin_center
+/Everything underlined in bold is supposed to be a rust object inside the xlang codebase./
+#+end_center
+Everything starts with an input /I/ where the user either with the /CLI(A), TUI(B)/ or even directly from the /STDIN(C)/ inputs a String of characters
+into the xlang *_InputBuffer_*. This buffer holds a mutable reference of that String which is supposedly the source code that the user wants evaluated
+in an /E/ way.
+
+#+begin_src rust
+  struct InputBuffer<'a>{
+   value: &'a mut String
+  }
+#+end_src
+
+Depending on /E/ the code must be evaluated differently so the idea is to abstract 
+** Language
+* Goals
+* Documentation, Updates, Help
