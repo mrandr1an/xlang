@@ -5,18 +5,28 @@ pub enum TokenType<'a> {
     L_PAREN,
     R_PAREN,
     END_LINE,
-    STRING(&'a str),
+    STRING(SexprItem<'a>),
 }
 
 #[derive(Debug)]
 pub struct Token<'a> {
     range: Range<usize>,
-    token: TokenType<'a>,
+    pub token: TokenType<'a>,
 }
 
 impl<'a> From<&'a str> for TokenType<'a> {
     fn from(value: &'a str) -> Self {
-        TokenType::STRING(value)
+        match value.chars().nth(0).unwrap() {
+            '#' => TokenType::STRING(SexprItem::Extension(value)),
+            ':' => TokenType::STRING(SexprItem::Symbol(value)),
+            _ => {
+                if value == "nil" {
+                    TokenType::STRING(SexprItem::Nil)
+                } else {
+                    TokenType::STRING(SexprItem::Atom(value))
+                }
+            }
+        }
     }
 }
 
@@ -50,16 +60,9 @@ impl<'a> From<(Range<usize>, &'a str)> for Token<'a> {
 }
 
 #[derive(Debug)]
-pub enum SexprItemType {
-    Atom,
-    Symbol,
-    Extension,
+pub enum SexprItem<'a> {
+    Atom(&'a str),
+    Symbol(&'a str),
+    Extension(&'a str),
     Nil,
-}
-
-#[derive(Debug)]
-pub struct SexprItem<'a> {
-    range: Range<usize>,
-    item: SexprItemType,
-    literal: &'a str,
 }
