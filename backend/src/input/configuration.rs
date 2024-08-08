@@ -1,14 +1,20 @@
-use crate::language::{program::Program, tokenizer::Tokenizer};
+use crate::language::{error::SyntaxError, parser::Parser, sexpr::Sexpr, tokenizer::Tokenizer};
 
 pub enum Configuration {
-    Stdin,
     Compiled,
-    Jit,
 }
 
 pub struct Resorvable<'a> {
     pub input: &'a String,
     config: Configuration,
+}
+
+impl<'a> Resorvable<'a> {
+    fn to_source(&self) -> Result<Sexpr<'a>, SyntaxError<'a>> {
+        let tokenizer = Tokenizer::new(self.input);
+        let mut parser = Parser::from(tokenizer);
+        parser.parse()
+    }
 }
 
 impl<'a> From<(&'a String, Configuration)> for Resorvable<'a> {
@@ -20,64 +26,29 @@ impl<'a> From<(&'a String, Configuration)> for Resorvable<'a> {
     }
 }
 
-impl<'a> Program<'a> for Resorvable<'a> {
-    type Error = String;
-    fn tokens(&self) -> crate::language::tokenizer::Tokenizer<'a> {
-        Tokenizer::new(self.input)
-    }
-}
-
 #[cfg(test)]
 mod tokenizer_tests {
     use super::*;
     use crate::{input::configuration::Configuration, language::parser::Parser};
 
     #[test]
-    fn tokenize() {
-        let s = "(hello (friend) (maybe) nil i should give you a (name) )".to_string();
-        let mut t = Resorvable::from((&s, Configuration::Compiled)).tokens();
-        println!("{:#?}", t.next().unwrap());
-        println!("{:#?}", t.next().unwrap());
-        println!("{:#?}", t.next().unwrap());
-        println!("{:#?}", t.next().unwrap());
-        println!("{:#?}", t.next().unwrap());
-        println!("{:#?}", t.next().unwrap());
-        println!("{:#?}", t.next().unwrap());
-        println!("{:#?}", t.next().unwrap());
-        println!("{:#?}", t.next().unwrap());
-        println!("{:#?}", t.next().unwrap());
-        println!("{:#?}", t.next().unwrap());
-        println!("{:#?}", t.next().unwrap());
-        println!("{:#?}", t.next().unwrap());
-        println!("{:#?}", t.next().unwrap());
-        println!("{:#?}", t.next().unwrap());
-        println!("{:#?}", t.next().unwrap());
-        println!("{:#?}", t.next().unwrap());
-    }
-
-    #[test]
     fn parse() {
         let s = "(defun hello (name) (print name))".to_string();
-        let tokenizer = Resorvable::from((&s, Configuration::Compiled)).tokens();
-        let mut parser = Parser::from(tokenizer);
-        println!("{:#?}", parser.parse());
+        let parsed = Resorvable::from((&s, Configuration::Compiled)).to_source();
+        println!("{:#?}", parsed);
     }
 
     #[test]
     fn simple_parse() {
         let s = "(print :debug hello)".to_string();
-        let tokenizer = Resorvable::from((&s, Configuration::Compiled)).tokens();
-        let mut parser = Parser::from(tokenizer);
-
-        println!("{:#?}", parser.parse());
+        let parsed = Resorvable::from((&s, Configuration::Compiled)).to_source();
+        println!("{:#?}", parsed);
     }
 
     #[test]
     fn failed_parse() {
         let s = "(print :debug hello".to_string();
-        let tokenizer = Resorvable::from((&s, Configuration::Compiled)).tokens();
-        let mut parser = Parser::from(tokenizer);
-
-        println!("{:#?}", parser.parse());
+        let parsed = Resorvable::from((&s, Configuration::Compiled)).to_source();
+        println!("{:#?}", parsed);
     }
 }
