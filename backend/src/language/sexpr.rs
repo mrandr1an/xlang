@@ -50,7 +50,13 @@ impl<'a> Sexpr<'a> {
 
 impl<'a> Iterator for Sexpr<'a> {
     type Item = Sexpr<'a>;
-    fn next(&mut self) -> Option<Sexpr<'a>> {
-        todo!()
+    fn next(&mut self) -> Option<<Self as Iterator>::Item> {
+        match self {
+            Sexpr::List { car, cdr } => {
+                todo!()
+            }
+            Sexpr::Item(token) => None,
+            Sexpr::EndList => None,
+        }
     }
 }

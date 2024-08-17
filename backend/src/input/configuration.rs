@@ -1,7 +1,11 @@
 use crate::language::{error::SyntaxError, parser::Parser, sexpr::Sexpr, tokenizer::Tokenizer};
 
 pub enum Configuration {
-    Compiled,
+    Compiled(Target),
+}
+
+pub enum Target {
+    ELF64Exec,
 }
 
 pub struct Resorvable<'a> {
@@ -14,6 +18,11 @@ impl<'a> Resorvable<'a> {
         let tokenizer = Tokenizer::new(self.input);
         let mut parser = Parser::from(tokenizer);
         parser.parse()
+    }
+
+    fn compile(&self) -> () {
+        let sexpr = self.to_source();
+        let target = &self.config;
     }
 }
 
@@ -29,26 +38,26 @@ impl<'a> From<(&'a String, Configuration)> for Resorvable<'a> {
 #[cfg(test)]
 mod tokenizer_tests {
     use super::*;
-    use crate::{input::configuration::Configuration, language::parser::Parser};
+    use crate::input::configuration::Configuration;
 
     #[test]
     fn parse() {
         let s = "(defun hello (name) (print name))".to_string();
-        let parsed = Resorvable::from((&s, Configuration::Compiled)).to_source();
+        let parsed = Resorvable::from((&s, Configuration::Compiled(Target::ELF64Exec))).to_source();
         println!("{:#?}", parsed);
     }
 
     #[test]
     fn simple_parse() {
         let s = "(print :debug hello)".to_string();
-        let parsed = Resorvable::from((&s, Configuration::Compiled)).to_source();
+        let parsed = Resorvable::from((&s, Configuration::Compiled(Target::ELF64Exec))).to_source();
         println!("{:#?}", parsed);
     }
 
     #[test]
     fn failed_parse() {
         let s = "(print :debug hello".to_string();
-        let parsed = Resorvable::from((&s, Configuration::Compiled)).to_source();
+        let parsed = Resorvable::from((&s, Configuration::Compiled(Target::ELF64Exec))).to_source();
         println!("{:#?}", parsed);
     }
 }
