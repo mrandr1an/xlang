@@ -17,8 +17,8 @@ pub struct Token<'a> {
 impl<'a> From<&'a str> for TokenType<'a> {
     fn from(value: &'a str) -> Self {
         match value.chars().nth(0).unwrap() {
-            '#' => TokenType::STRING(SexprItem::Extension(value)),
-            ':' => TokenType::STRING(SexprItem::Symbol(value)),
+            '#' => TokenType::STRING(SexprItem::Extension(&value[1..])),
+            ':' => TokenType::STRING(SexprItem::Symbol(&value[1..])),
             _ => {
                 if value == "nil" {
                     TokenType::STRING(SexprItem::Nil)
