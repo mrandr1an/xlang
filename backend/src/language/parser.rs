@@ -1,17 +1,20 @@
 use super::{error::SyntaxError, sexpr::Sexpr, token::TokenType, tokenizer::Tokenizer};
 
-pub struct Parser<'a> {
-    iter: Tokenizer<'a>,
+pub struct Parser<'a, 'b>
+where
+    'b: 'a,
+{
+    iter: Tokenizer<'a, 'b>,
 }
 
-impl<'a> From<Tokenizer<'a>> for Parser<'a> {
-    fn from(value: Tokenizer<'a>) -> Self {
+impl<'a, 'b> From<Tokenizer<'a, 'b>> for Parser<'a, 'b> {
+    fn from(value: Tokenizer<'a, 'b>) -> Self {
         Self { iter: value }
     }
 }
 
-impl<'a> Parser<'a> {
-    pub fn parse(&'a mut self) -> Option<(Result<Sexpr<'a>, SyntaxError<'a>>, &'a mut Parser<'a>)> {
+impl<'a, 'b> Parser<'a, 'b> {
+    pub fn parse(mut self) -> Option<(Result<Sexpr<'a>, SyntaxError<'a>>, Parser<'a, 'b>)> {
         let root = Sexpr::new();
         match self.iter.next() {
             Some(token) => match token.token {

@@ -1,7 +1,4 @@
-use super::{
-    sexpr::Sexpr,
-    token::{Token, TokenType},
-};
+use super::token::{Token, TokenType};
 
 #[derive(Debug)]
 pub enum SyntaxError<'a> {
