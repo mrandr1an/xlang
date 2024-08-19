@@ -48,15 +48,35 @@ impl<'a> Sexpr<'a> {
     }
 }
 
-impl<'a> Iterator for Sexpr<'a> {
-    type Item = Sexpr<'a>;
-    fn next(&mut self) -> Option<<Self as Iterator>::Item> {
+#[derive(Debug)]
+pub enum List<'a> {
+    Void,
+    Packed { car: Sexpr<'a>, cdr: Vec<Sexpr<'a>> },
+}
+
+impl<'a> From<Option<(Sexpr<'a>, Vec<Sexpr<'a>>)>> for List<'a> {
+    fn from(value: Option<(Sexpr<'a>, Vec<Sexpr<'a>>)>) -> Self {
+        match value {
+            None => Self::Void,
+            Some((head, tail)) => List::Packed {
+                car: head,
+                cdr: tail,
+            },
+        }
+    }
+}
+
+impl<'a> List<'a> {}
+
+impl<'a> Sexpr<'a> {
+    pub fn next(self) -> Option<Result<Token<'a>, List<'a>>> {
         match self {
-            Sexpr::List { car, cdr } => {
-                todo!()
-            }
-            Sexpr::Item(token) => None,
-            Sexpr::EndList => None,
+            Self::EndList => None,
+            Self::Item(item) => Some(Ok(item)),
+            Self::List { car, cdr } => match *car {
+                Some(head) => Some(Err(List::from(Some((head, cdr))))),
+                None => Some(Err(List::from(None))),
+            },
         }
     }
 }

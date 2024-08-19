@@ -11,19 +11,19 @@ impl<'a> From<Tokenizer<'a>> for Parser<'a> {
 }
 
 impl<'a> Parser<'a> {
-    pub fn parse(&mut self) -> Result<Sexpr<'a>, SyntaxError<'a>> {
+    pub fn parse(&'a mut self) -> Option<(Result<Sexpr<'a>, SyntaxError<'a>>, &'a mut Parser<'a>)> {
         let root = Sexpr::new();
         match self.iter.next() {
             Some(token) => match token.token {
-                TokenType::L_PAREN => self.next(root),
-                _ => Err(SyntaxError::UnexpectedStart),
+                TokenType::L_PAREN => Some((self.next(root), self)),
+                _ => Some((Err(SyntaxError::UnexpectedStart), self)),
             },
-            None => Err(SyntaxError::UnexpectedStart),
+            None => None,
         }
     }
 
     fn new_list(&mut self) -> Result<Sexpr<'a>, SyntaxError<'a>> {
-        let mut root = Sexpr::new();
+        let root = Sexpr::new();
         self.next(root)
     }
 
