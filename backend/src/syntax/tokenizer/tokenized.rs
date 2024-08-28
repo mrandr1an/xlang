@@ -1,7 +1,5 @@
 use std::{iter::Enumerate, str::Chars};
 
-use crate::syntax::parser::parser::Parsed;
-
 use super::token::{Lexeme, Token};
 
 #[derive(Debug)]
@@ -117,9 +115,9 @@ impl<'a> Tokenized<'a> {
         }
     }
 
-    fn parse(self) -> Parsed<'a> {
-        Parsed::new(self)
-    }
+    // fn parse(self) -> Parsed<'a> {
+    //     Parsed::new(self)
+    // }
 }
 
 impl<'a> Iterator for Tokenized<'a> {
