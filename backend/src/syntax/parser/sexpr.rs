@@ -1,84 +1,79 @@
 use std::{
-    cell::{Ref, RefCell, RefMut},
-    fmt::Display,
+    cell::{Ref, RefCell},
     rc::{Rc, Weak},
-    slice::{Iter, IterMut},
+    slice::Iter,
 };
 
 use crate::syntax::tokenizer::token::Lexeme;
 
 #[derive(Debug)]
 pub enum Sexpr<'a> {
-    Item {
-        lexeme: Lexeme<'a>,
-        parent: Weak<Sexpr<'a>>,
-    },
-    List {
-        elements: SexprElements<'a>,
-        parent: Option<Weak<Sexpr<'a>>>,
-    },
+    Item(Item<'a>),
+    List(Rc<List<'a>>),
 }
 
-type SexprElements<'a> = RefCell<Vec<Rc<Sexpr<'a>>>>;
+#[derive(Debug)]
+pub struct Item<'a> {
+    lexeme: Lexeme<'a>,
+    parent: Weak<List<'a>>,
+}
 
-impl<'a> Sexpr<'a> {
+#[derive(Debug)]
+pub struct List<'a> {
+    parent: Option<Weak<List<'a>>>,
+    elements: SexprElements<'a>,
+}
+
+impl<'a> List<'a> {
     fn root() -> Rc<Self> {
-        Rc::new(Self::List {
-            elements: RefCell::new(vec![]),
+        Rc::new(List {
             parent: None,
-        })
-    }
-
-    fn new(parent: Weak<Sexpr<'a>>) -> Rc<Self> {
-        Rc::new(Self::List {
             elements: RefCell::new(vec![]),
-            parent: Some(parent),
         })
     }
 
-    fn add_lexeme(self: Rc<Self>, lexeme: Lexeme<'a>) {
-        match &*self {
-            Sexpr::List { elements, parent } => elements.borrow_mut().push(Rc::new(Sexpr::Item {
-                lexeme,
-                parent: Rc::downgrade(&self),
-            })),
-            _ => panic!("Cannot add item to non list"),
-        }
+    fn new(parent: Weak<List<'a>>) -> Rc<Self> {
+        Rc::new(List {
+            parent: Some(parent),
+            elements: RefCell::new(vec![]),
+        })
     }
 
-    fn add_list(self: Rc<Self>, list: Rc<Sexpr<'a>>) {
-        match &*self {
-            Sexpr::List { elements, parent } => elements.borrow_mut().push(list),
-            _ => panic!("Cannot add item to non list"),
-        }
+    fn push_lexeme(self: &Rc<Self>, lexeme: Lexeme<'a>) {
+        self.elements.borrow_mut().push(Sexpr::Item(Item {
+            lexeme,
+            parent: Rc::downgrade(self),
+        }))
     }
 
-    fn list_iter(list: &'a SexprElements<'a>) -> SexprIter<'a> {
-        SexprIter {
-            inner: Some(Ref::map(list.borrow(), |v| &v[..])),
+    fn push_list(self: &Rc<Self>, list: Rc<List<'a>>) {
+        self.elements.borrow_mut().push(Sexpr::List(list))
+    }
+
+    fn iter(self: &'a Rc<Self>) -> ListIter<'a> {
+        let borrowed_self = self.elements.borrow();
+        /* For future reference vector.as_slice() is == to &vector[..] latter is more elegant imo*/
+        ListIter {
+            inner: Some(Ref::map(borrowed_self, |inner_vector| &inner_vector[..])),
         }
     }
 }
 
-/*
-https://play.rust-lang.org/?version=stable&mode=debug&edition=2018&gist=517e738082574de914918476cb47c493
-https://stackoverflow.com/questions/33541492/returning-iterator-of-a-vec-in-a-refcell
-*/
-struct SexprIter<'a> {
-    inner: Option<Ref<'a, [Rc<Sexpr<'a>>]>>,
+pub struct ListIter<'a> {
+    inner: Option<Ref<'a, [Sexpr<'a>]>>,
 }
 
-impl<'a> Iterator for SexprIter<'a> {
-    type Item = Ref<'a, Rc<Sexpr<'a>>>;
-
+impl<'a> Iterator for ListIter<'a> {
+    type Item = Ref<'a, Sexpr<'a>>;
     fn next(&mut self) -> Option<Self::Item> {
         match self.inner.take() {
-            Some(borrow) => match *borrow {
+            Some(slice_ref) => match *slice_ref {
                 [] => None,
                 [_, ..] => {
-                    let (head, tail) = Ref::map_split(borrow, |slice| (&slice[0], &slice[1..]));
-                    self.inner.replace(tail);
-                    Some(head)
+                    let (head_ref, tail_ref) =
+                        Ref::map_split(slice_ref, |slice| (&slice[0], &slice[1..]));
+                    self.inner.replace(tail_ref);
+                    Some(head_ref)
                 }
             },
             None => None,
@@ -86,55 +81,145 @@ impl<'a> Iterator for SexprIter<'a> {
     }
 }
 
+/*
+http://play.rust-lang.org/?version=stable&mode=debug&edition=2018&gist=517e738082574de914918476cb47c493
+https://stackoverflow.com/questions/33541492/returning-iterator-of-a-vec-in-a-refcell
+ */
+
+type SexprElements<'a> = RefCell<Vec<Sexpr<'a>>>;
+
+impl<'a> Sexpr<'a> {
+    pub fn root() -> Self {
+        Self::List(List::root())
+    }
+
+    pub fn new(parent: &Sexpr<'a>) -> Self {
+        match parent {
+            Sexpr::List(parent_list) => Self::List(List::new(Rc::downgrade(parent_list))),
+            Sexpr::Item(_) => panic!("Item cannot be parent"),
+        }
+    }
+
+    pub fn add_lexeme(&self, lexeme: Lexeme<'a>) {
+        match self {
+            Self::List(list) => list.push_lexeme(lexeme),
+            Self::Item(_) => panic!("Cannot add lexeme to non list"),
+        }
+    }
+
+    pub fn add_list(&self, list: Rc<List<'a>>) {
+        match self {
+            Self::List(curr_list) => curr_list.push_list(list),
+            Self::Item(_) => panic!("Cannot add list to non list"),
+        }
+    }
+
+    pub fn add_sexpr(&self, sexpr: &Sexpr<'a>) {
+        match self {
+            Self::List(curr_list) => match sexpr {
+                Sexpr::Item(_) => todo!("Maybe this should not be implemented"),
+                Sexpr::List(list) => curr_list.push_list(Rc::clone(list)),
+            },
+            Self::Item(_) => panic!("Cannot add sexpr to non list"),
+        }
+    }
+
+    pub fn iter(&'a self) -> SexprIter<'a> {
+        match self {
+            Sexpr::List(list) => SexprIter {
+                list_iter: list.iter(),
+            },
+            Sexpr::Item(_) => panic!("Cannot iterate an item"),
+        }
+    }
+}
+
+pub struct SexprIter<'a> {
+    list_iter: ListIter<'a>,
+}
+
+impl<'a> Iterator for SexprIter<'a> {
+    type Item = Ref<'a, Sexpr<'a>>;
+    fn next(&mut self) -> Option<Self::Item> {
+        self.list_iter.next()
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use std::rc::Rc;
-
     use crate::syntax::tokenizer::token::Lexeme;
 
     use super::Sexpr;
 
     #[test]
-    fn create_sexpr() {
-        let lexeme1 = Lexeme::Symbol {
-            range: 1..5,
+    fn creating_sexprs() {
+        let root = Sexpr::root();
+
+        /* Pseudo lexemes */
+        let defun = Lexeme::Symbol {
+            range: 0..5,
             literal: "defun",
         };
-
-        let lexeme2 = Lexeme::Symbol {
-            range: 7..11,
+        let print = Lexeme::Symbol {
+            range: 0..5,
             literal: "print",
         };
 
-        let root = Sexpr::root();
-        Rc::clone(&root).add_lexeme(lexeme1);
-        Rc::clone(&root).add_lexeme(lexeme2);
+        root.add_lexeme(defun);
+        root.add_lexeme(print);
 
-        let args = Sexpr::new(Rc::downgrade(&root));
+        let args = Sexpr::new(&root);
 
-        let arg1 = Lexeme::Symbol {
-            range: 15..17,
-            literal: "msg",
-        };
-
-        let arg2 = Lexeme::Atom {
-            range: 18..23,
+        let arg1 = Lexeme::Atom {
+            range: 10..15,
             literal: "string",
         };
+        let arg2 = Lexeme::Symbol {
+            range: 10..15,
+            literal: "msg",
+        };
+        args.add_lexeme(arg1);
+        args.add_lexeme(arg2);
 
-        Rc::clone(&args).add_lexeme(arg1);
-        Rc::clone(&args).add_lexeme(arg2);
-        Rc::clone(&root).add_list(args);
+        root.add_sexpr(&args);
 
-        match &*root {
-            Sexpr::List { elements, parent } => {
-                let mut a = Sexpr::list_iter(elements);
-                println!("first {:#?}", a.next());
-                println!("second {:#?}", a.next());
-                println!("third {:#?}", a.next());
-                println!("fourth {:#?}", a.next());
-            }
-            _ => todo!(),
+        println!("{:#?}", root);
+    }
+
+    #[test]
+    fn iterating_sexprs() {
+        let root = Sexpr::root();
+
+        /* Pseudo lexemes */
+        let defun = Lexeme::Symbol {
+            range: 0..5,
+            literal: "defun",
+        };
+        let print = Lexeme::Symbol {
+            range: 0..5,
+            literal: "print",
+        };
+
+        root.add_lexeme(defun);
+        root.add_lexeme(print);
+
+        let args = Sexpr::new(&root);
+
+        let arg1 = Lexeme::Atom {
+            range: 10..15,
+            literal: "string",
+        };
+        let arg2 = Lexeme::Symbol {
+            range: 10..15,
+            literal: "msg",
+        };
+        args.add_lexeme(arg1);
+        args.add_lexeme(arg2);
+
+        root.add_sexpr(&args);
+
+        for i in root.iter() {
+            println!("{:#?}", i)
         }
     }
 }
