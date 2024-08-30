@@ -164,4 +164,12 @@ mod tests {
             println!("{:#?}", i)
         }
     }
+
+    #[test]
+    fn test_complex_tokens() {
+        let input = "(defun print (:string msg) \"Prints msg\" (dbg msg) ) ";
+        for i in input.tokens() {
+            println!("{:#?}", i)
+        }
+    }
 }

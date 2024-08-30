@@ -1,7 +1,6 @@
 use std::{
     cell::{Ref, RefCell},
     rc::{Rc, Weak},
-    slice::Iter,
 };
 
 use crate::syntax::tokenizer::token::Lexeme;
@@ -25,29 +24,39 @@ pub struct List<'a> {
 }
 
 impl<'a> List<'a> {
-    fn root() -> Rc<Self> {
+    pub fn root() -> Rc<Self> {
         Rc::new(List {
             parent: None,
             elements: RefCell::new(vec![]),
         })
     }
 
-    fn new(parent: Weak<List<'a>>) -> Rc<Self> {
+    pub fn new(parent: Weak<List<'a>>) -> Rc<Self> {
         Rc::new(List {
             parent: Some(parent),
             elements: RefCell::new(vec![]),
         })
     }
 
-    fn push_lexeme(self: &Rc<Self>, lexeme: Lexeme<'a>) {
+    pub fn get_parent(&self) -> Option<Rc<List<'a>>> {
+        self.parent
+            .as_ref()
+            .map(|parent| parent.upgrade().expect("Weak pointer error"))
+    }
+
+    pub fn push_lexeme(self: &Rc<Self>, lexeme: Lexeme<'a>) {
         self.elements.borrow_mut().push(Sexpr::Item(Item {
             lexeme,
             parent: Rc::downgrade(self),
         }))
     }
 
-    fn push_list(self: &Rc<Self>, list: Rc<List<'a>>) {
+    pub fn push_list(self: &Rc<Self>, list: Rc<List<'a>>) {
         self.elements.borrow_mut().push(Sexpr::List(list))
+    }
+
+    pub fn push_sexpr(self: &Rc<Self>, sexpr: Sexpr<'a>) {
+        self.elements.borrow_mut().push(sexpr)
     }
 
     fn iter(self: &'a Rc<Self>) -> ListIter<'a> {
@@ -121,6 +130,19 @@ impl<'a> Sexpr<'a> {
                 Sexpr::List(list) => curr_list.push_list(Rc::clone(list)),
             },
             Self::Item(_) => panic!("Cannot add sexpr to non list"),
+        }
+    }
+
+    pub fn get_parent(&self) -> Option<Rc<List<'a>>> {
+        match self {
+            Sexpr::Item(item) => item.parent.upgrade(),
+            Sexpr::List(list) => {
+                if let Some(par) = &list.parent {
+                    par.upgrade()
+                } else {
+                    None
+                }
+            }
         }
     }
 
