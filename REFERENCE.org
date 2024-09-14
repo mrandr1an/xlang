@@ -1,0 +1,61 @@
+#+TITLE: X Reference
+#+AUTHOR: Chris Liourtas
+
+* Preface
+Because I have rewritten, redesigned and overly complicated the (simple, educational) purpose of this repo I decided to keep
+track of what I am currently reading to somewhat make this project available for future use. This is in no way
+the documentation that has yet to be written as I am still trying to specify what exactly I want this language to be.
+
+* Middle-End Theory
+** SSA
+*** Referential Transparency
+Consider the following block of code,
+#+begin_src code
+  x = 1;
+  y = x + 1;
+  x = 2;
+  z = x + 1;
+#+end_src
+One of the properties of SSA is *referential transparency*. According to the code above we could assume that the variables /y/ and /z/ are equal
+since they are both equal to /x + 1/. However this is not true since their actual values depend on their position (flow) of the program
+(the above code). This is the result of a lack of referential transparency, i.e., dependance of context. First /x = 1/ therefore /y = 1 + 1 = 2/
+then /x = 2/, therefore /z = 2 + 1 = 3/. By providing a static (one that lasts during an /X/ duration), single (unique) assignment we add referential
+transparency to the program. We do that by essentially renaming each variable whenever it is changed/assigned again. Therefore the above code
+becomes.
+#+begin_src code
+ x = 1;
+ y = x + 1;
+ x1 = 2;
+ z = x1 + 1;
+#+end_src
+This code is referentially transparent because /y(x)/ and /z(x)/ are now independed of their position or flow of the program.
+*** Informal SSA
+The above according to the [[https://pfalcon.github.io/ssabook/latest/book-full.pdf][SSA Book]] is as far as I understand the only 'serious' formal property of ssa. Now comes the φ-function
+(phi-function), known as the pseudo-assignment function.
+Consider the following block of code,
+#+begin_src code
+  x = input();
+  if x == 42 then
+  y = 1;
+  else
+  y = x + 2;
+  end
+  print(y);
+#+end_src
+There is a distinct definition of y in each branch of the if statement, this is what the phi function represents.
+#+begin_src code
+  x = input();
+  if x == 42 then
+  y = 1;
+  else
+  y2 = x + 2;
+  end
+  y3 = phi(y,y2) ;
+  print(y3);
+#+end_src
+A phi function at a block b has n parameters if there are are n incoming control flow paths to b. In this case there were two.
+* Reference
+[[https://www.jmeiners.com/lc3-vm/][Building a LC-3 vm]]
+[[https://pfalcon.github.io/ssabook/latest/book-full.pdf][SSA Book]]
+[[https://www.gatevidyalay.com/directed-acyclic-graphs/][Dag Blog]]
+
